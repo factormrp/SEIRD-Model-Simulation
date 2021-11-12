@@ -1,16 +1,19 @@
-def plot_compare(actual,predicted,t,title="Population over Time"):
+def plot_compare(actual, predicted, t, title="Population over Time"):
     """
-    Plots simulated values against source data values
+    Plot simulated values against source data values
     """
     # import dependencies
     import matplotlib
     matplotlib.use("TkAgg")
     import matplotlib.pyplot as plt
 
-    # plot the comparison
-    plt.figure(figsize=(16,9))
-    plt.plot(t,actual,color="blue",lw=2,label="actual")
-    plt.plot(t,predicted,color="orange",lw=2,label="predicted")
+    # plotting
+    plt.figure(figsize=(16, 9))
+    # source data plot
+    plt.plot(t, actual, color="blue", lw=2, label="actual")
+    # simulated/predict plot
+    plt.plot(t, predicted, color="orange", lw=2, label="predicted")
+    # add labels, title, and legend
     plt.ylabel("Proportion of Population")
     plt.xlabel("Time in days")
     plt.title(title)
@@ -26,8 +29,9 @@ if __name__ == "__main__":
     states = ["andaman","andhra","delhi","manipur"]
     input_files = ["india-"+state+".csv" for state in states]
 
-    # get data to run the model
+    # initialize population
     N = 1398705031
+    # get data to run the model
 
     for state,filename in zip(states,input_files):
         path = os.path.join("data",filename)
@@ -49,4 +53,5 @@ if __name__ == "__main__":
         #plot_compare(I[-21:],list(df["Active"]),t,title=f"Infected Population over Simulation Period for {state}")
         #plot_compare(R[-21:],list(df["Recovered"]),t,title=f"Recovered Population over Simulation Period for {state}")
         #plot_compare(D[-21:],list(df["Deceased"]),t,title=f"Deceased Population over Simulation Period for {state}")
-        plot_sim(I[-21:],R[-21:],D[-21:],t,title=f"Simulation over Period for {state}")
+
+        plot_compare(I[-21:],R[-21:],D[-21:],t,title=f"Simulation over Period for {state}")

@@ -66,7 +66,7 @@ class SEIRDModel():
         x = odeint(self.differentials,x0,t)
         return x
 
-#   #   #   #   #   #
+#   #   #   #   #   # 
 
 def loadData(path,N,year=2021,months=[10]):
     """
@@ -136,7 +136,7 @@ if __name__ == "__main__":
     s,e,i,r,d = X[:,0],X[:,1],X[:,2],X[:,3],X[:,4]
     t = list(range(len(s)))
 
-    # plot results
+    # plot results for each group of individuals in Maharashtra District
     plot_compare(tested,e,t,title="Exposed Population over Time for Maharashtra District")
     plot_compare(confirmed,i,t,title="Infected Population over Time for Maharashtra District")
     plot_compare(recovered,r,t,title="Recovered Population over Time for Maharashtra District")

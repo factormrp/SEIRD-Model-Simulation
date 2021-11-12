@@ -1,3 +1,4 @@
+# import some needed libraries
 from scipy.integrate import odeint
 import numpy as np
 import sys
@@ -28,12 +29,12 @@ def get_consts(incub=None,infec=None,R_0=None):
 
 def get_initials():
     """
-    Asks the user to enter in the initial values to be used in the IVP
+    Asks the user to enter in the initial values to be used in the initial value problem
     """
-    s_0 = input("Enter the inital population of susceptibles: ")
-    e_0 = input("Enter the inital population of exposed: ")
-    i_0 = input("Enter the inital population of infected: ")
-    r_0 = input("Enter the inital population of recovered: ")
+    s_0 = input("Enter the initial population of susceptible: ")
+    e_0 = input("Enter the initial population of exposed: ")
+    i_0 = input("Enter the initial population of infected: ")
+    r_0 = input("Enter the initial population of recovered: ")
     return [s_0,e_0,i_0,r_0]
 
 def plot_results(s=None,e=None,i=None,r=None,t=None):
@@ -51,17 +52,22 @@ def plot_results(s=None,e=None,i=None,r=None,t=None):
 
     # plot the results
     plt.figure(figsize=(16,9))
+
+    # plot susceptible & recovered group
     plt.subplot(2,1,1)
     plt.plot(t,s,color="blue",lw=2,label="susceptible")
     plt.plot(t,r,color="green",lw=2,label="recovered")
     plt.ylabel("Fraction of Pop")
     plt.legend()
+
+    # plot of exposed and infected group
     plt.subplot(2,1,2)
     plt.plot(t,e,color="orange",lw=2,label="exposed")
     plt.plot(t,i,color="red",lw=2,label="infected")
     plt.ylabel("Fraction of Pop")
     plt.xlabel("Time in Days")
     plt.legend()
+
     plt.show()
 
 
@@ -70,7 +76,7 @@ if __name__ == "__main__":
     # initialize hyperparameters
     incubation,infection,R_not,N = None,None,None,None
 
-    # if user specified, then ask user for hyperparameters, otherwise use hardcoded values 
+    # if user specified, then ask user for hyperparameters, otherwise use hard-coded values 
     if "--get-args" in sys.argv or "-g" in sys.argv:
         incubation,infection,R_not,N,u = get_hyperparams()
     else:
@@ -90,7 +96,7 @@ if __name__ == "__main__":
         """
         Runs the SEIR model simulation over time
         """
-        # raise expection on improper use of the function
+        # raise exception on improper use of the function
         if alpha is None or beta is None or gamma is None or u is None:
             raise Exception("Failed to run simulation")
 
