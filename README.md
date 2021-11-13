@@ -1,18 +1,14 @@
 # SEIRD Model Simulation
 
-*This mini-project is an implementation of solving 1st-order ODE systems. We chose to investigate an SEIRD model because of the vast amount of publicly-accessible academic data and papers on this subject and how it's flexibly used in different settings to model the spread of Covid-19.
+*This mini-project is an implementation of solving 1st-order ODE systems. We chose to investigate an SEIRD model because of the vast amount of publicly-accessible academic data and papers on this subject and how it's flexibly used in different settings to model the spread of Covid-19.*
 
--------------------------------------------------------------------------------------------------
+---
 
 ### Synopsis
 
-We leveraged numerical analysis packages `scipy` and `numpy` to simulate populations. Visualizations are generated using `matplotlib` and we are working on implementing neater animations using `manim`.
+We leveraged numerical analysis packages `scipy` and `lmfit` to simulate populations. Data is handled with the help of `numpy`. Visualizations are generated using `matplotlib`
 
--------------------------------------------------------------------------------------------------
-
-### Links
-
-Further Readings: TBA
+---
 
 ### References
 <a id="1">[1]</a> 
