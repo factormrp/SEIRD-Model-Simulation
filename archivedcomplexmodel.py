@@ -1,89 +1,101 @@
-
-class SEIRDModel():
+def estimateParams(N,E,I,R,D):
     """
-    Encapsulates the system of equations with helper functions and class variables for ease of
-    time-dependent calculations
+    Defines a whole set of parameters to search best fit from
     """
+    # import dependencies
+    import numpy as np
+    from lmfit import Parameters
 
-    def __init__(self,population,susceptible,tested,confirmed,recovered,deceased):
-        """
-        Initializes the model with source data
-        """
-        self.N = population
-        self.S = susceptible
-        self.E = tested
-        self.I = confirmed
-        self.R = recovered
-        self.D = deceased
-        self.calc_deltas()
+    # get values for susceptible population group
+    S = [N - (e+i+r+d) for e,i,r,d in zip(E,I,R,D)]
 
-    def calc_deltas(self):
-        """
-        Calculates all daily differences in source data populations
-        """
-        self.S_diff = [0]+[self.S[i]-self.S[i-1] for i in range(1,len(self.S))]
-        self.E_diff = [0]+[self.E[i]-self.E[i-1] for i in range(1,len(self.E))]
-        self.I_diff = [0]+[self.I[i]-self.I[i-1] for i in range(1,len(self.I))]
-        self.R_diff = [0]+[self.R[i]-self.R[i-1] for i in range(1,len(self.R))]
-        self.D_diff = [0]+[self.D[i]-self.D[i-1] for i in range(1,len(self.D))]
+    # initialize lists
+    dE,dI,dR,dD = [],[],[],[]
+    alphas,betas,gammas,deltas = [],[],[],[]
+    
+    # create lists of all possible parameter values
+    for i in range(len(S)-1):
+        dE.append(E[i+1]-E[i])
+        dI.append(I[i+1]-I[i])
+        dR.append(R[i+1]-R[i])
+        dD.append(D[i+1]-D[i])
+        alphas.append((dI[-1]+dR[-1]+dD[-1])/E[i])
+        betas.append((N*(dE[-1]+dI[-1]+dR[-1]+dD[-1]))/(S[i]*I[i]))
+        gammas.append(dR[-1]/I[i])
+        deltas.append(dD[-1]/I[i])
 
-    def differentials(self,vals,t):
-        """
-        Defines the system of ODEs and uses passed values to update the model
-        """
-        # grab values from passed parameters
-        s,e,i,r,d = vals
-        t = int(t) if t<len(self.E_diff) else len(self.E_diff)-1
+    # define initial parameters
+    params = Parameters()
+    params.add("alpha",np.average(alphas),min=min(alphas),max=max(alphas))
+    params.add("beta",np.average(betas),min=min(betas),max=max(betas))
+    params.add("gamma",np.average(gammas),min=min(gammas),max=max(gammas))
+    if min(deltas) != max(deltas):
+        params.add("delta",np.average(deltas),min=min(deltas),max=max(deltas))
+    else:
+        params.add("delta",np.average(deltas),vary=False)        
+    return params
 
-        # grab the differences between previous paremeters and current ones
-        de,di,dr,dd = self.E_diff[t],self.I_diff[t],self.R_diff[t],self.D_diff[t]
+def error(params,inits,timespan,data):
+    """
+    Calculates the residual values of estimates
+    """
+    # calls the solver to grab solution
+    soln = solver(timespan,inits,params)
 
-        # calculate the time dependent constants
-        alpha = (di+dr+dd)/e
-        beta = (de+di+dr+dd)*self.N/(s*i)
-        gamma = dr/i
-        delta = dd/i
+    return (soln[:,1:]-data).ravel()
 
-        # define the differential system
-        dS = -(beta*s*i)/self.N
-        dE = (beta*s*i)/self.N - alpha*e
-        dI = alpha*e - gamma*i - delta*i
-        dR = gamma*i
-        dD = delta*i
+def solver(t,vals,params):
+    """
+    Defines the system of ODEs and uses passed values to update the model
+    """
+    # import dependency        
+    from scipy.integrate import odeint
 
-        return [dS,dE,dI,dR,dD]
-        
-    def run(self):
-        """
-        Leverages the scipy.integrate.odeint function to run stepwise updates
-        """
-        # import dependency        
-        from scipy.integrate import odeint
+    # grab values from passed parameters
+    n,e,i,r,d = vals
 
-        # define the time range, initial values, and run it
-        t = list(range(len(self.S)))
-        x0 = [self.S[0],self.E[0],self.I[0],self.R[0],self.D[0]]
-        x = odeint(self.differentials,x0,t)
-        return x
+    # calculate s population
+    s = n - (e+i+r+d)
 
-#   #   #   #   #   # 
+    # define params
+    alpha,beta = params["alpha"].value,params["beta"].value
+    gamma,delta = params["gamma"].value,params["delta"].value
 
-def loadData(path,N,year=2021,months=[10]):
+    return odeint(SEIRDModel,[s,e,i,r,d],t,args=(alpha,beta,gamma,delta))
+    
+def SEIRDModel(z,t,alpha,beta,gamma,delta):
+    """
+    Defines the system of ODEs
+    """
+    # grab values
+    s,e,i,r,d = z
+    N = s+e+i+r+d
+
+    # define the differential system
+    dS = -(beta*s*e)/N
+    dE = (beta*s*e)/N - alpha*e
+    dI = alpha*e - gamma*i - delta*i
+    dR = gamma*i
+    dD = delta*i
+
+    return [dS,dE,dI,dR,dD]
+
+def loadData(path,county,year=2021,months=[10],records=14):
     """
     Loads in source data from json file and returns distinct population lists
     """
-    # import dependency
+    # import dependencies
     from time import strptime
     import json
 
     # initialize lists of distinct population groups
-    susceptible,tested,confirmed,recovered,deceased = [],[],[],[],[]
+    tested,confirmed,recovered,deceased = [],[],[],[]
 
     # open the file, iterate over each nested dictionary, and append appropriate data
     with open(path) as f:
         data = json.load(f)
 
-        for day,data in data["MH"]["dates"].items():
+        for day,data in data[county]["dates"].items():
             day = strptime(day,"%Y-%m-%d")
             is_from_last_month = (day.tm_year == year and day.tm_mon in months) 
             if data.get("total") and is_from_last_month:
@@ -91,10 +103,9 @@ def loadData(path,N,year=2021,months=[10]):
                 confirmed.append(data["total"].get("confirmed") if data["total"].get("confirmed") else 0)
                 recovered.append(data["total"].get("recovered") if data["total"].get("recovered") else 0)
                 deceased.append(data["total"].get("deceased") if data["total"].get("deceased") else 0)
-                susceptible.append(N - (tested[-1]+confirmed[-1]+recovered[-1]+deceased[-1]))
-    return susceptible,tested,confirmed,recovered,deceased
+    return tested[-records:],confirmed[-records:],recovered[-records:],deceased[-records:]
 
-def plot_compare(actual,predicted,t,title="Population over Time"):
+def plotCompare(actual,predicted,t,title="Population over Time"):
     """
     Plots simulated values against source data values
     """
@@ -116,28 +127,47 @@ def plot_compare(actual,predicted,t,title="Population over Time"):
 #   #   #   #   #   #
 
 if __name__ == "__main__":
-    # import dependency
+    # import dependencies
     import os
+    import numpy as np
+    from lmfit import minimize
 
-    # define date filters
+    # define filters
     YEAR = 2021
-    MONTHS = [8,9,10]
+    MONTHS = [10]
+    RECORDS = 14
+    COUNTIES = ["AP","CH","DL","MH"]
+    names = {"AP":"Andhra Pradesh","CH":"Chandigarh","DL":"Delhi","MH":"Maharashtra"}
+    TRAINDAYS = 7
 
-    # get data to run the model
+    # define population constant
     N = 1398705031
+
+    # define path to data
     path = os.path.join("data","india-data.json")
-    susceptible,tested,confirmed,recovered,deceased = loadData(path,N,year=YEAR,months=MONTHS)
 
-    # create the model with given data and run the ODE system
-    model = SEIRDModel(N,susceptible,tested,confirmed,recovered,deceased)
-    X = model.run()
+    # Run simulation for each desired county
+    for county in COUNTIES:
+        # load data into lists
+        E,I,R,D = loadData(path,county,year=YEAR,months=MONTHS,records=RECORDS)
 
-    # collect results
-    s,e,i,r,d = X[:,0],X[:,1],X[:,2],X[:,3],X[:,4]
-    t = list(range(len(s)))
+        # get parameter estimation ranges based on tdays of data
+        params = estimateParams(N,E[:TRAINDAYS],I[:TRAINDAYS],R[:TRAINDAYS],D[:TRAINDAYS])
 
-    # plot results for each group of individuals in Maharashtra District
-    plot_compare(tested,e,t,title="Exposed Population over Time for Maharashtra District")
-    plot_compare(confirmed,i,t,title="Infected Population over Time for Maharashtra District")
-    plot_compare(recovered,r,t,title="Recovered Population over Time for Maharashtra District")
-    plot_compare(deceased,d,t,title="Deceased Population over Time for Maharashtra District")
+        # convert input data to array to feed into optimizer for residuals calculations
+        data = np.concatenate([np.array(i) for i in [E,I,R,D]]).reshape((4,14)).T
+
+        # define the initial conditions and period of simulation
+        x0 = [N,E[0],I[0],R[0],D[0]]
+        period = list(range(len(E)))
+
+        # Run the model through optimizer to get best parameters
+        result = minimize(error,params,args=(x0,period,data),method="leastsq")
+
+        # Run the model using the best parameters
+        soln = solver(period,x0,result.params)
+        S_p,E_p,I_p,R_p,D_p = soln[:,0],soln[:,1],soln[:,2],soln[:,3],soln[:,4]
+
+        plotCompare(I,I_p,period,title=f"{names[county]} Infected Pop over Time")
+        plotCompare(R,R_p,period,title=f"{names[county]} Recovered Pop over Time")
+        plotCompare(D,D_p,period,title=f"{names[county]} Deceased Pop over Time")
